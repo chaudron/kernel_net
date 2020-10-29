@@ -1695,6 +1695,9 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	if (err)
 		goto err_destroy_ports;
 
+	/* So far only local changes have been made, now need the lock. */
+	ovs_lock();
+
 	/* Set up our datapath device. */
 	parms.name = nla_data(a[OVS_DP_ATTR_NAME]);
 	parms.type = OVS_VPORT_TYPE_INTERNAL;
@@ -1706,9 +1709,6 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	err = ovs_dp_change(dp, a);
 	if (err)
 		goto err_destroy_meters;
-
-	/* So far only local changes have been made, now need the lock. */
-	ovs_lock();
 
 	vport = new_vport(&parms);
 	if (IS_ERR(vport)) {
@@ -1725,7 +1725,6 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 				ovs_dp_reset_user_features(skb, info);
 		}
 
-		ovs_unlock();
 		goto err_destroy_meters;
 	}
 
@@ -1742,6 +1741,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	return 0;
 
 err_destroy_meters:
+	ovs_unlock();
 	ovs_meters_exit(dp);
 err_destroy_ports:
 	kfree(dp->ports);
